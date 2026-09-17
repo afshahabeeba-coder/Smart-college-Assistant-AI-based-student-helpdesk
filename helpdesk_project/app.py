@@ -673,13 +673,15 @@ def api_chat():
     try:
         data = request.get_json() or {}
         query = data.get("query") or data.get("question", "")
+        language = data.get("language") or "en"
         query = query.strip()
         if not query:
             return jsonify({"response": "Please ask a question."})
         answer = get_chatbot_response(
             query,
             semester=session.get("semester"),
-            username=session.get("username")
+            username=session.get("username"),
+            language=language
         )
         return jsonify({"response": answer, "answer": answer})
     except Exception as e:
@@ -692,13 +694,15 @@ def ask():
     try:
         data = request.get_json() or {}
         question = data.get("question") or data.get("query", "")
+        language = data.get("language") or "en"
         question = question.strip()
         if not question:
             return jsonify({"answer": "Please enter a question."})
         answer = get_chatbot_response(
             question,
             semester=session.get("semester"),
-            username=session.get("username")
+            username=session.get("username"),
+            language=language
         )
         return jsonify({"answer": answer, "response": answer})
     except Exception as e:

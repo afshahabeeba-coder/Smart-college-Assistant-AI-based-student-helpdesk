@@ -20,6 +20,80 @@ GENERAL_FALLBACK = (
     "or try asking with specific subject/topic keywords."
 )
 
+LANGUAGE_HINTS = {
+    'hi': {
+        'कक्षा': 'class', 'कब': 'when', 'असाइनमेंट': 'assignment', 'उपस्थिति': 'attendance',
+        'प्रश्न': 'query', 'समस्या': 'problem', 'कहां': 'where', 'तारीख': 'date',
+        'टाइमटेबल': 'timetable', 'कैलेंडर': 'calendar', 'आज': 'today', 'कल': 'tomorrow',
+        'अभ्यावेदन': 'complaint', 'फॉर्म': 'form', 'लेवल': 'level', 'रिज़्यूमे': 'resume'
+    },
+    'te': {
+        'క్లాస్': 'class', 'ఎప్పుడు': 'when', 'అసైన్‌మెంట్': 'assignment', 'అసైన్‌మెంట్‌': 'assignment',
+        'అటెండెన్స్': 'attendance', 'ప్రశ్న': 'query', 'సమస్య': 'problem', 'ఎక్కడ': 'where',
+        'తేదీ': 'date', 'టైమ్‌టేబుల్': 'timetable', 'నేడు': 'today', 'రేపు': 'tomorrow',
+        'ఫిర్యాదు': 'complaint', 'రెస్యూమ్': 'resume'
+    }
+}
+
+LOCALIZED_FALLBACKS = {
+    'hi': {
+        'I couldn\'t find a direct match in the college records.': 'मुझे कॉलेज रिकॉर्ड में कोई सीधा मिलान नहीं मिला।',
+        'You can ask an administrator to add this topic, submit a query under the \'Queries\' tab, or try asking with specific subject/topic keywords.': 'आप एडमिनिस्ट्रेटर से इस विषय को जोड़ने के लिए कह सकते हैं, \"Queries\" टैब में प्रश्न जमा कर सकते हैं, या विशिष्ट विषय/कीवर्ड के साथ पूछ सकते हैं।',
+        'Please enter a question so I can help.': 'कृपया एक प्रश्न दर्ज करें, मैं सहायता कर सकता हूँ।',
+        'There are no classes listed for tomorrow': 'कल के लिए कोई क्लास सूचीबद्ध नहीं है',
+        'Here are the current assignments:': 'वर्तमान असाइनमेंट्स यहाँ हैं:',
+        'Here are the matching assignment details:': 'मिलते असाइनमेंट का विवरण यहाँ है:',
+        'Your timetable for': 'आपका टाइमटेबल',
+        'Attendance': 'उपस्थिति',
+        'Assignments': 'असाइनमेंट्स',
+        'queries': 'प्रश्न',
+        'complaint': 'शिकायत',
+        'resume': 'रिज़्यूमे'
+    },
+    'te': {
+        'I couldn\'t find a direct match in the college records.': 'కాలేజీ రికార్డుల్లో సరైన మ్యాచ్ కనిపించలేదు.',
+        'You can ask an administrator to add this topic, submit a query under the \'Queries\' tab, or try asking with specific subject/topic keywords.': 'ఈ విషయం జోడించడానికి అడ్మినిస్ట్రేటర్‌ను అడగవచ్చు, \"Queries\" ట్యాబ్‌లో ప్రశ్నను సమర్పించవచ్చు లేదా స్పష్టమైన కీ‌వర్డ్‌లు ఉపయోగించి అడగవచ్చు.',
+        'Please enter a question so I can help.': 'దయచేసి ఒక ప్రశ్న ఇవ్వండి, నేను సహాయం చేస్తాను.',
+        'There are no classes listed for tomorrow': 'రేపటి కోసం ఎలాంటి క్లాస్లు జాబితా చేయబడలేదు',
+        'Here are the current assignments:': 'ప్రస్తుత అసైన్‌మెంట్స్ ఇవి:',
+        'Here are the matching assignment details:': 'సరిపోలే అసైన్‌మెంట్ వివరాలు ఇవి:',
+        'Your timetable for': 'మీ టైమ్‌టేబుల్',
+        'Attendance': 'అటెండెన్స్',
+        'Assignments': 'అసైన్‌మెంట్స్',
+        'queries': 'ప్రశ్నలు',
+        'complaint': 'ఫిర్యాదు',
+        'resume': 'రెస్యూమ్'
+    }
+}
+
+
+def _detect_language(query):
+    if re.search(r'[\u0900-\u097F]', query):
+        return 'hi'
+    if re.search(r'[\u0C00-\u0C7F]', query):
+        return 'te'
+    return 'en'
+
+
+def _normalize_query_for_language(query, language):
+    normalized = query.strip()
+    if language not in LANGUAGE_HINTS:
+        return normalized
+
+    for key, value in LANGUAGE_HINTS[language].items():
+        normalized = normalized.replace(key, value)
+    return ' '.join(normalized.split())
+
+
+def _localize_response(response, language):
+    if language == 'en' or not response:
+        return response
+
+    localized = response
+    for key, value in LOCALIZED_FALLBACKS.get(language, {}).items():
+        localized = localized.replace(key, value)
+    return localized
+
 
 # ---------------- 1. DYNAMIC ANNOUNCEMENTS RETRIEVAL ----------------
 def _get_announcements_response(user_query):
@@ -1089,54 +1163,57 @@ def _get_leave_attendance_response(user_query, username=None, semester=None):
 
 
 # ---------------- MAIN CHATBOT PIPELINE ----------------
-def get_chatbot_response(user_query, semester=None, username=None):
+def get_chatbot_response(user_query, semester=None, username=None, language=None):
     cleaned_query = ' '.join(user_query.split())
     if not cleaned_query:
-        return 'Please enter a question so I can help.'
+        return _localize_response('Please enter a question so I can help.', language or 'en')
+
+    detected_language = language or _detect_language(cleaned_query)
+    query_for_logic = _normalize_query_for_language(cleaned_query, detected_language)
 
     # 1. Check leave requests against tomorrow's live classes and attendance.
-    leave_resp = _get_leave_attendance_response(cleaned_query, username, semester)
+    leave_resp = _get_leave_attendance_response(query_for_logic, username, semester)
     if leave_resp:
-        return leave_resp
+        return _localize_response(leave_resp, detected_language)
 
     # 2. Combine multiple live portal signals for planning questions.
-    day_plan_resp = _get_day_plan_response(cleaned_query, username, semester)
+    day_plan_resp = _get_day_plan_response(query_for_logic, username, semester)
     if day_plan_resp:
-        return day_plan_resp
+        return _localize_response(day_plan_resp, detected_language)
 
     # 2. General planning and submission guidance.
-    guidance_resp = _get_plan_submission_guidance(cleaned_query)
+    guidance_resp = _get_plan_submission_guidance(query_for_logic)
     if guidance_resp:
-        return guidance_resp
+        return _localize_response(guidance_resp, detected_language)
 
-    broad_help_resp = _get_college_help_response(cleaned_query)
+    broad_help_resp = _get_college_help_response(query_for_logic)
     if broad_help_resp:
-        return broad_help_resp
+        return _localize_response(broad_help_resp, detected_language)
 
     # 3. Timetable query (live SQLite)
-    timetable_resp = _get_timetable_response(cleaned_query, semester)
+    timetable_resp = _get_timetable_response(query_for_logic, semester)
     if timetable_resp:
-        return timetable_resp
+        return _localize_response(timetable_resp, detected_language)
 
     # 3. Assignments query (live SQLite)
-    assignment_resp = _get_assignment_response(cleaned_query)
+    assignment_resp = _get_assignment_response(query_for_logic)
     if assignment_resp:
-        return assignment_resp
+        return _localize_response(assignment_resp, detected_language)
 
     # 4. Announcements & Notices query (live SQLite)
-    announcement_resp = _get_announcements_response(cleaned_query)
+    announcement_resp = _get_announcements_response(query_for_logic)
     if announcement_resp:
-        return announcement_resp
+        return _localize_response(announcement_resp, detected_language)
 
     # 5. Knowledge Base & FAQs (live SQLite + Vector RAG)
-    faq_resp = _get_faq_response(cleaned_query)
+    faq_resp = _get_faq_response(query_for_logic)
     if faq_resp:
-        return faq_resp
+        return _localize_response(faq_resp, detected_language)
 
     # 6. External LLM API (if configured)
-    general_resp = _get_general_response(cleaned_query)
+    general_resp = _get_general_response(query_for_logic)
     if general_resp:
-        return general_resp
+        return _localize_response(general_resp, detected_language)
 
     # 7. Live Web Knowledge Search (Wikipedia API for concepts, sciences, tech)
     college_specific_words = [
@@ -1150,14 +1227,14 @@ def get_chatbot_response(user_query, semester=None, username=None):
         'course', 'department'
     ]
 
-    if not any(word in cleaned_query.lower() for word in college_specific_words):
-        web_resp = _get_web_knowledge_response(cleaned_query)
+    if not any(word in query_for_logic.lower() for word in college_specific_words):
+        web_resp = _get_web_knowledge_response(query_for_logic)
         if web_resp:
-            return web_resp
+            return _localize_response(web_resp, detected_language)
 
     # 8. Academic Fallback Dictionary
-    academic_resp = _get_academic_fallback(cleaned_query)
+    academic_resp = _get_academic_fallback(query_for_logic)
     if academic_resp:
-        return academic_resp
+        return _localize_response(academic_resp, detected_language)
 
-    return GENERAL_FALLBACK
+    return _localize_response(GENERAL_FALLBACK, detected_language)

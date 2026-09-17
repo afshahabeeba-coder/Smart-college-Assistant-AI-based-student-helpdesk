@@ -83,6 +83,17 @@
             }
         }
 
+        function getSelectedLanguage() {
+            const select = document.getElementById('language-select');
+            return select ? select.value : 'en';
+        }
+
+        function getSpeechLanguage() {
+            const lang = getSelectedLanguage();
+            const map = { en: 'en-US', hi: 'hi-IN', te: 'te-IN' };
+            return map[lang] || 'en-US';
+        }
+
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -92,7 +103,7 @@
             const rec = new SpeechRecognition();
             rec.continuous = false;
             rec.interimResults = true;
-            rec.lang = 'en-US';
+            rec.lang = getSpeechLanguage();
 
             rec.onstart = function() {
                 isListening = true;
@@ -179,7 +190,7 @@
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query })
+                    body: JSON.stringify({ query, language: getSelectedLanguage() })
                 });
                 const data = await response.json();
                 document.getElementById(loadingId).remove();
@@ -750,6 +761,11 @@
                 <button id="mic-btn" onclick="toggleVoiceInput()" title="Speak your question (Microphone)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 w-10 h-10 rounded-xl flex items-center justify-center text-sm transition shrink-0 border border-slate-200">
                     <i id="mic-icon" class="fa-solid fa-microphone"></i>
                 </button>
+                <select id="language-select" class="px-2 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="te">తెలుగు</option>
+                </select>
                 <input type="text" id="chat-input" onkeypress="handleChatKey(event)" placeholder="Ask or speak a question..." class="flex-1 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button onclick="sendChatMessage()" title="Send message" class="bg-blue-600 hover:bg-blue-700 text-white w-10 h-10 rounded-xl text-xs font-semibold shadow-md transition flex items-center justify-center shrink-0">
                     <i class="fa-solid fa-paper-plane"></i>
