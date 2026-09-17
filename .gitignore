@@ -14,14 +14,6 @@ env/
 .env
 .env.*
 
-# Flask / app data
-instance/
-*.sqlite3
-*.db
-uploads/
-media/
-chroma_db/
-
 # IDE / OS
 .vscode/
 .idea/
