@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.*
+
+# Flask / app data
+instance/
+*.sqlite3
+*.db
+uploads/
+media/
+chroma_db/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node / frontend
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Logs
+*.log
+
+# Coverage / tools
+coverage/
+htmlcov/

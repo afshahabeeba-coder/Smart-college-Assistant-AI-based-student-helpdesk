@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart College Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl w-full max-w-md p-8 text-white">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full shadow-lg mb-4">
+                <i class="fa-solid fa-user-plus text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold tracking-tight">Student Registration</h1>
+            <p class="text-blue-200 text-sm mt-1">Join Smart College Assistant Helpdesk</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form action="{{ url_for('register') }}" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-blue-100 mb-1">Full Name</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-300">
+                        <i class="fa-solid fa-id-card"></i>
+                    </span>
+                    <input type="text" name="name" required class="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" placeholder="e.g. John Doe">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-blue-100 mb-1">Username</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-300">
+                        <i class="fa-solid fa-user"></i>
+                    </span>
+                    <input type="text" name="username" required class="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" placeholder="Choose a unique username">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-blue-100 mb-1">Password</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-300">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    <input type="password" name="password" required class="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" placeholder="Create a password">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-blue-100 mb-1">Department</label>
+                    <select name="department" required class="w-full p-2.5 bg-slate-800/80 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Civil">Civil</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-blue-100 mb-1">Semester</label>
+                    <select name="semester" required class="w-full p-2.5 bg-slate-800/80 border border-white/20 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="Sem 1">Sem 1</option>
+                        <option value="Sem 3">Sem 3</option>
+                        <option value="Sem 5" selected>Sem 5</option>
+                        <option value="Sem 7">Sem 7</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full mt-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl font-semibold shadow-lg transition duration-200 text-sm">
+                Register Account
+            </button>
+        </form>
+
+        <div class="mt-6 pt-4 border-t border-white/10 text-center text-xs text-blue-200">
+            <p>Already have an account? <a href="{{ url_for('login') }}" class="text-blue-400 font-semibold hover:underline">Sign In here</a></p>
+        </div>
+    </div>
+</body>
+</html>

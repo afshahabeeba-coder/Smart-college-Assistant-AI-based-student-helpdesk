@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Smart College Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+                el.classList.add('text-slate-600', 'hover:bg-slate-100');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+        }
+    </script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-800 text-lg leading-tight">Admin Control Panel</h1>
+                    <p class="text-xs text-slate-500">Smart College Assistant</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button type="button" onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '{{ url_for('dashboard') }}'; }" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition">
+                    <i class="fa-solid fa-arrow-left"></i> Back
+                </button>
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-semibold text-slate-800">{{ session['name'] }}</p>
+                    <p class="text-xs text-slate-500">Administrator</p>
+                </div>
+                <a href="{{ url_for('logout') }}" class="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-medium transition">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <button onclick="switchTab('overview')" id="btn-overview" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition bg-indigo-600 text-white shadow-md">
+                <i class="fa-solid fa-chart-pie"></i> Overview & Students
+            </button>
+            <button onclick="switchTab('queries')" id="btn-queries" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-comments"></i> Student Queries
+            </button>
+            <button onclick="switchTab('complaints')" id="btn-complaints" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-triangle-exclamation"></i> Manage Complaints
+            </button>
+            <button onclick="switchTab('faqs')" id="btn-faqs" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-circle-question"></i> Manage FAQs
+            </button>
+            <button onclick="switchTab('announcements')" id="btn-announcements" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-bullhorn"></i> Announcements
+            </button>
+            <button onclick="switchTab('timetable')" id="btn-timetable" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-calendar-days"></i> Timetable
+            </button>
+            <button onclick="switchTab('attendance')" id="btn-attendance" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-clipboard-user"></i> Attendance
+            </button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW & STUDENTS -->
+        <div id="overview" class="tab-content space-y-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-xl mb-4">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Students</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ students | length }}</h3>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-xl mb-4">
+                        <i class="fa-solid fa-circle-question"></i>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Knowledge Base FAQs</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ faqs | length }}</h3>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center text-xl mb-4">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Complaints</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ complaints | length }}</h3>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-xl mb-4">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wider">Announcements</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1">{{ announcements | length }}</h3>
+                </div>
+            </div>
+
+            <!-- Student Directory Table -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-blue-600"></i> Registered Students Directory
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-sm">
+                                <th class="p-3 rounded-l-xl">Username</th>
+                                <th class="p-3">Full Name</th>
+                                <th class="p-3">Department</th>
+                                <th class="p-3 rounded-r-xl">Semester</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                            {% for student in students %}
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">{{ student['username'] }}</td>
+                                <td class="p-3 font-medium text-slate-700">{{ student['name'] }}</td>
+                                <td class="p-3">{{ student['department'] }}</td>
+                                <td class="p-3"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-semibold">{{ student['semester'] }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MANAGE FAQS -->
+        <div id="faqs" class="tab-content hidden space-y-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Add FAQ Form -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-plus text-indigo-600"></i> Add New FAQ
+                    </h3>
+                    <form action="{{ url_for('add_faq') }}" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Question</label>
+                            <input type="text" name="question" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. What are library hours?">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Answer</label>
+                            <textarea name="answer" rows="3" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Provide accurate answer..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Tag</label>
+                            <input type="text" name="tag" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. library, exam">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-md transition">Add to Knowledge Base</button>
+                    </form>
+                </div>
+
+                <!-- FAQs List -->
+                <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-question text-indigo-600"></i> Knowledge Base Entries
+                    </h3>
+                    <div class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                        {% for item in faqs %}
+                        <div class="border border-slate-200 rounded-2xl p-4 flex justify-between items-start gap-4">
+                            <div>
+                                <span class="bg-indigo-50 text-indigo-700 text-[10px] px-2.5 py-1 rounded-md font-semibold uppercase">{{ item['tag'] }}</span>
+                                <h4 class="font-bold text-slate-800 text-sm mt-1.5">{{ item['question'] }}</h4>
+                                <p class="text-xs text-slate-600 mt-1">{{ item['answer'] }}</p>
+                            </div>
+                            <form action="{{ url_for('delete_faq', faq_id=item['id']) }}" method="POST">
+                                <button type="submit" class="text-red-500 hover:text-red-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: MANAGE COMPLAINTS -->
+        <div id="complaints" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-600"></i> Student Complaints & Grievances
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-sm">
+                                <th class="p-3 rounded-l-xl">ID</th>
+                                <th class="p-3">Student</th>
+                                <th class="p-3">Category</th>
+                                <th class="p-3">Description</th>
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 rounded-r-xl">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                            {% for comp in complaints %}
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">#{{ comp['id'] }}</td>
+                                <td class="p-3 font-medium text-slate-700">{{ comp['username'] }}</td>
+                                <td class="p-3">{{ comp['category'] }}</td>
+                                <td class="p-3 max-w-xs truncate">{{ comp['description'] }}</td>
+                                <td class="p-3 text-xs">{{ comp['date'] }}</td>
+                                <td class="p-3">
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold 
+                                        {% if comp['status'] == 'Resolved' %}bg-emerald-100 text-emerald-700
+                                        {% elif comp['status'] == 'In Progress' %}bg-blue-100 text-blue-700
+                                        {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                        {{ comp['status'] }}
+                                    </span>
+                                </td>
+                                <td class="p-3">
+                                    <form action="{{ url_for('update_complaint', complaint_id=comp['id']) }}" method="POST" class="space-y-2 min-w-48">
+                                        <select name="status" class="text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg w-full">
+                                            <option value="Pending" {% if comp['status'] == 'Pending' %}selected{% endif %}>Pending</option>
+                                            <option value="In Progress" {% if comp['status'] == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                            <option value="Resolved" {% if comp['status'] == 'Resolved' %}selected{% endif %}>Resolved</option>
+                                        </select>
+                                        <textarea name="admin_response" rows="2" placeholder="Reply to student..." class="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg w-full">{{ comp['admin_response'] }}</textarea>
+                                        <button type="submit" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">Save reply</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: MANAGE QUERIES -->
+        <div id="queries" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-comments text-blue-600"></i> Student Questions
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-sm">
+                                <th class="p-3">ID</th><th class="p-3">Student</th><th class="p-3">Subject</th><th class="p-3">Question</th><th class="p-3">Date</th><th class="p-3">Status</th><th class="p-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                            {% for query in queries %}
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">#{{ query['id'] }}</td>
+                                <td class="p-3 font-medium text-slate-700">{{ query['username'] }}</td>
+                                <td class="p-3">{{ query['subject'] }}</td>
+                                <td class="p-3 max-w-xs">{{ query['question'] }}</td>
+                                <td class="p-3 text-xs">{{ query['date'] }}</td>
+                                <td class="p-3"><span class="px-3 py-1 rounded-full text-xs font-semibold {% if query['status'] == 'Resolved' %}bg-emerald-100 text-emerald-700{% elif query['status'] == 'In Progress' %}bg-blue-100 text-blue-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ query['status'] }}</span></td>
+                                <td class="p-3">
+                                    <form action="{{ url_for('update_query', query_id=query['id']) }}" method="POST" class="space-y-2 min-w-48">
+                                        <select name="status" class="text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg w-full">
+                                            <option value="Pending" {% if query['status'] == 'Pending' %}selected{% endif %}>Pending</option>
+                                            <option value="In Progress" {% if query['status'] == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                            <option value="Resolved" {% if query['status'] == 'Resolved' %}selected{% endif %}>Resolved</option>
+                                        </select>
+                                        <textarea name="admin_response" rows="2" placeholder="Reply to student..." class="text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg w-full">{{ query['admin_response'] }}</textarea>
+                                        <button type="submit" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">Save reply</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="7" class="p-6 text-center text-slate-500">No student queries yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: ANNOUNCEMENTS -->
+        <div id="announcements" class="tab-content hidden space-y-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Add Announcement Form -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-emerald-600"></i> Post Announcement
+                    </h3>
+                    <form action="{{ url_for('add_announcement') }}" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                            <input type="text" name="title" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. TechFest 2026">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Content</label>
+                            <textarea name="content" rows="4" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Write announcement details..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                            <select name="category" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="Exam Notification">Exam Notification</option>
+                                <option value="Assignment">Assignment</option>
+                                <option value="Event">Event</option>
+                                <option value="Holiday">Holiday</option>
+                                <option value="Important Notice">Important Notice</option>
+                                <option value="General" selected>General Announcement</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-md transition">Publish Announcement</button>
+                    </form>
+                </div>
+
+                <!-- Announcements List -->
+                <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-list text-emerald-600"></i> Published Announcements
+                    </h3>
+                    <div class="space-y-4">
+                        {% for ann in announcements %}
+                        <div class="border border-slate-200 rounded-2xl p-4">
+                            <div class="flex justify-between items-start mb-1">
+                                <h4 class="font-bold text-slate-800 text-base">{{ ann['title'] }}</h4>
+                                <span class="text-xs text-slate-400">{{ ann['date'] }}</span>
+                            </div>
+                            <span class="inline-block bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded-md font-semibold uppercase">{{ ann['category'] }}</span>
+                            <p class="text-xs text-slate-600">{{ ann['content'] }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: TIMETABLE -->
+        <div id="timetable" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-indigo-600"></i> Add Class to Timetable
+                </h3>
+                <form action="{{ url_for('add_timetable_entry') }}" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <select name="semester" required class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                        <option value="">Select semester</option>
+                        <option value="Sem 1">Sem 1</option>
+                        <option value="Sem 3">Sem 3</option>
+                        <option value="Sem 5">Sem 5</option>
+                        <option value="Sem 7">Sem 7</option>
+                    </select>
+                    <select name="day" required class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                        <option value="">Select day</option>
+                        <option>Monday</option>
+                        <option>Tuesday</option>
+                        <option>Wednesday</option>
+                        <option>Thursday</option>
+                        <option>Friday</option>
+                        <option>Saturday</option>
+                    </select>
+                    <input type="text" name="time_slot" required placeholder="09:00 AM - 10:00 AM" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                    <input type="text" name="subject" required placeholder="Subject" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                    <input type="text" name="faculty" required placeholder="Faculty name" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                    <input type="text" name="room" required placeholder="Room or lab" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800">
+                    <label class="md:col-span-2 flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" name="is_next" value="1" class="h-4 w-4 text-indigo-600 rounded">
+                        Show this as the next class for students
+                    </label>
+                    <button type="submit" class="md:col-span-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-md transition">Add Class</button>
+                </form>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days text-indigo-600"></i> College Master Timetable
+                    </h3>
+                    <form action="{{ url_for('clear_timetable') }}" method="POST" onsubmit="return confirm('Are you sure you want to delete ALL timetable records? This action cannot be undone.');">
+                        <input type="hidden" name="semester" value="All">
+                        <button type="submit" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3.5 py-2 rounded-xl border border-rose-200 transition flex items-center gap-2">
+                            <i class="fa-solid fa-trash-can"></i> Clear All Timetable
+                        </button>
+                    </form>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-sm">
+                                <th class="p-3 rounded-l-xl">Semester</th>
+                                <th class="p-3">Day</th>
+                                <th class="p-3">Time Slot</th>
+                                <th class="p-3">Subject</th>
+                                <th class="p-3">Faculty</th>
+                                <th class="p-3">Room</th>
+                                <th class="p-3">Next Class</th>
+                                <th class="p-3 rounded-r-xl text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                            {% for row in timetable %}
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">{{ row['semester'] }}</td>
+                                <td class="p-3">{{ row['day'] }}</td>
+                                <td class="p-3">{{ row['time_slot'] }}</td>
+                                <td class="p-3 font-medium text-indigo-600">{{ row['subject'] }}</td>
+                                <td class="p-3">{{ row['faculty'] }}</td>
+                                <td class="p-3"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-semibold">{{ row['room'] }}</span></td>
+                                <td class="p-3">
+                                    {% if row['is_next'] %}
+                                    <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold">Selected</span>
+                                    {% else %}
+                                    <span class="text-xs text-slate-400">No</span>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 text-center">
+                                    <form action="{{ url_for('delete_timetable_entry', entry_id=row['id']) }}" method="POST" onsubmit="return confirm('Delete this class: {{ row.subject }} ({{ row.day }})?');" class="inline">
+                                        <button type="submit" class="text-rose-600 hover:text-rose-800 p-2 rounded-lg hover:bg-rose-50 transition" title="Delete class">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="p-6 text-center text-slate-400">
+                                    <i class="fa-solid fa-calendar-xmark text-3xl mb-2 block"></i>
+                                    No timetable entries found. Use the form above to add classes.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 7: ATTENDANCE -->
+        <div id="attendance" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-user text-emerald-600"></i> Update Student Attendance
+                </h3>
+                <p class="text-sm text-slate-500 mb-5">Set the total classes conducted and the classes attended. Student percentages are calculated automatically.</p>
+                <div class="space-y-3">
+                    {% for record in attendance_records %}
+                    <form action="{{ url_for('update_attendance', attendance_id=record['id']) }}" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-center border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <div class="md:col-span-2">
+                            <p class="font-semibold text-slate-800">{{ record['name'] or record['username'] }}</p>
+                            <p class="text-xs text-slate-500">{{ record['username'] }} &middot; {{ record['subject'] }}</p>
+                        </div>
+                        <label class="text-xs text-slate-600">Total classes
+                            <input type="number" name="total_classes" min="0" value="{{ record['total_classes'] }}" required class="mt-1 w-full p-2 bg-white border border-slate-200 rounded-lg">
+                        </label>
+                        <label class="text-xs text-slate-600">Attended
+                            <input type="number" name="attended_classes" min="0" max="{{ record['total_classes'] }}" value="{{ record['attended_classes'] }}" required class="mt-1 w-full p-2 bg-white border border-slate-200 rounded-lg">
+                        </label>
+                        <button type="submit" class="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition">
+                            <i class="fa-solid fa-save mr-1"></i> Save
+                        </button>
+                    </form>
+                    {% else %}
+                    <p class="text-sm text-slate-500">No attendance records are available.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>

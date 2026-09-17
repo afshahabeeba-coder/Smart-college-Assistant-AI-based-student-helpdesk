@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Smart College Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                el.classList.add('text-slate-600', 'hover:bg-slate-100');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+            activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+        }
+
+        function toggleChatbot() {
+            const chatbot = document.getElementById('chatbot-box');
+            chatbot.classList.toggle('hidden');
+        }
+
+        function askFAQ(question) {
+            const chatbot = document.getElementById('chatbot-box');
+            if (chatbot.classList.contains('hidden')) {
+                chatbot.classList.remove('hidden');
+            }
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = question;
+                sendChatMessage();
+            }
+        }
+
+        // ================= VOICE ASSISTANT (STT & TTS) =================
+        let isVoiceOutputEnabled = true;
+        let recognition = null;
+        let isListening = false;
+
+        function cleanTextForSpeech(raw) {
+            let tmp = document.createElement("div");
+            tmp.innerHTML = raw;
+            let text = tmp.textContent || tmp.innerText || "";
+            text = text.replace(/[*#_`•]/g, ' ').replace(/\s+/g, ' ').trim();
+            return text;
+        }
+
+        function speakText(rawText, btnElement = null) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const text = cleanTextForSpeech(rawText);
+            if (!text) return;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            if (btnElement) {
+                const originalHtml = btnElement.innerHTML;
+                btnElement.innerHTML = '<i class="fa-solid fa-volume-high text-blue-600 animate-pulse"></i> Speaking...';
+                utterance.onend = () => { btnElement.innerHTML = originalHtml; };
+                utterance.onerror = () => { btnElement.innerHTML = originalHtml; };
+            }
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleVoiceOutput() {
+            isVoiceOutputEnabled = !isVoiceOutputEnabled;
+            const icon = document.getElementById('voice-toggle-icon');
+            const label = document.getElementById('voice-toggle-label');
+            if (isVoiceOutputEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-xs';
+                if (label) label.innerText = 'Voice On';
+            } else {
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                icon.className = 'fa-solid fa-volume-xmark text-xs text-red-200';
+                if (label) label.innerText = 'Muted';
+            }
+        }
+
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition is not supported in this browser. Please try Google Chrome or Microsoft Edge.");
+                return null;
+            }
+            const rec = new SpeechRecognition();
+            rec.continuous = false;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+
+            rec.onstart = function() {
+                isListening = true;
+                const micBtn = document.getElementById('mic-btn');
+                const banner = document.getElementById('voice-listening-banner');
+                if (micBtn) micBtn.className = 'bg-red-500 text-white w-10 h-10 rounded-xl flex items-center justify-center text-sm transition animate-pulse shadow-md';
+                if (banner) banner.classList.remove('hidden');
+            };
+
+            rec.onresult = function(event) {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    transcript += event.results[i][0].transcript;
+                }
+                const input = document.getElementById('chat-input');
+                if (input && transcript) {
+                    input.value = transcript;
+                }
+            };
+
+            rec.onerror = function(event) {
+                console.warn("Speech recognition error:", event.error);
+                stopVoiceRecognition();
+            };
+
+            rec.onend = function() {
+                stopVoiceRecognition();
+                const input = document.getElementById('chat-input');
+                if (input && input.value.trim().length > 0) {
+                    // Auto-send once student finishes speaking
+                    sendChatMessage();
+                }
+            };
+
+            return rec;
+        }
+
+        function toggleVoiceInput() {
+            if (isListening) {
+                stopVoiceRecognition();
+                return;
+            }
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+            }
+            if (recognition) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error("Speech start error:", e);
+                }
+            }
+        }
+
+        function stopVoiceRecognition() {
+            isListening = false;
+            if (recognition) {
+                try { recognition.stop(); } catch (e) {}
+            }
+            const micBtn = document.getElementById('mic-btn');
+            const banner = document.getElementById('voice-listening-banner');
+            if (micBtn) micBtn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 w-10 h-10 rounded-xl flex items-center justify-center text-sm transition';
+            if (banner) banner.classList.add('hidden');
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const messages = document.getElementById('chat-messages');
+            const query = input.value.trim();
+            if (!query) return;
+
+            // Append student message
+            const encodedQuery = encodeURIComponent(query);
+            messages.innerHTML += `<div class="flex justify-end mb-3"><div class="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-tr-none max-w-[80%] text-sm shadow-sm"><div>${query}</div><button type="button" onclick="editChatMessage(decodeURIComponent('${encodedQuery}'))" class="text-[11px] text-blue-100 hover:text-white flex items-center gap-1 mt-2 pt-1 border-t border-white/20"><i class="fa-solid fa-pen"></i> Edit</button></div></div>`;
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+
+            // Loading indicator
+            const loadingId = 'loading-' + Date.now();
+            messages.innerHTML += `<div id="${loadingId}" class="flex justify-start mb-3"><div class="bg-slate-200 text-slate-700 px-4 py-2 rounded-2xl rounded-tl-none max-w-[80%] text-sm italic">Thinking...</div></div>`;
+            messages.scrollTop = messages.scrollHeight;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await response.json();
+                document.getElementById(loadingId).remove();
+                
+                const botText = data.response || "No response received.";
+                const safeEncoded = encodeURIComponent(botText);
+
+                messages.innerHTML += `
+                    <div class="flex justify-start mb-3">
+                        <div class="bg-white border border-slate-200 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none max-w-[85%] text-xs shadow-sm">
+                            <div class="leading-relaxed">${botText}</div>
+                            <button onclick="speakText(decodeURIComponent('${safeEncoded}'), this)" class="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1.5 mt-2 pt-1.5 border-t border-slate-100 transition">
+                                <i class="fa-solid fa-volume-high"></i> Listen
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                if (isVoiceOutputEnabled) {
+                    speakText(botText);
+                }
+            } catch (err) {
+                document.getElementById(loadingId).remove();
+                messages.innerHTML += `<div class="flex justify-start mb-3"><div class="bg-red-100 text-red-700 px-4 py-2 rounded-2xl rounded-tl-none max-w-[80%] text-sm">Error connecting to AI service.</div></div>`;
+            }
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function editChatMessage(message) {
+            const input = document.getElementById('chat-input');
+            if (!input) return;
+            input.value = message;
+            input.focus();
+            input.select();
+        }
+
+        function handleChatKey(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+    </script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-800 text-lg leading-tight">Smart College Assistant</h1>
+                    <p class="text-xs text-slate-500">Student Helpdesk Portal</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-semibold text-slate-800">{{ session['name'] }}</p>
+                    <p class="text-xs text-slate-500">{{ session['department'] }} | {{ session['semester'] }}</p>
+                </div>
+                <a href="{{ url_for('logout') }}" class="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-medium transition">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200 mb-8">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition bg-blue-600 text-white shadow-md">
+                <i class="fa-solid fa-house"></i> Dashboard
+            </button>
+            <button onclick="switchTab('queries')" id="btn-queries" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-comments"></i> Queries
+            </button>
+            <button onclick="switchTab('timetable')" id="btn-timetable" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-calendar-days"></i> Timetable
+            </button>
+            <button onclick="switchTab('attendance')" id="btn-attendance" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-clipboard-user"></i> Attendance
+            </button>
+            <button onclick="switchTab('assignments')" id="btn-assignments" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-book-open"></i> Assignments
+            </button>
+            <button onclick="switchTab('complaints')" id="btn-complaints" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-triangle-exclamation"></i> Complaints
+            </button>
+            <button onclick="switchTab('faq')" id="btn-faq" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition text-slate-600 hover:bg-slate-100">
+                <i class="fa-solid fa-circle-question"></i> Knowledge Base & FAQs
+            </button>
+        </div>
+
+        <!-- TAB 1: DASHBOARD -->
+        <div id="dashboard" class="tab-content space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Welcome Card -->
+                <div class="md:col-span-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-8 text-white shadow-lg flex flex-col justify-between">
+                    <div>
+                        <span class="bg-white/20 text-xs px-3 py-1 rounded-full font-semibold uppercase tracking-wider">Student Portal</span>
+                        <h2 class="text-3xl font-bold mt-4">Welcome back, {{ session['name'] }}!</h2>
+                        <p class="text-blue-100 mt-2 max-w-xl">Have a question about your timetable, exams, or college facilities? Use our AI Assistant or browse the quick helpdesk sections below.</p>
+                    </div>
+                    <div class="mt-6 flex gap-4">
+                        <button onclick="toggleChatbot()" class="bg-white text-blue-600 font-semibold px-6 py-3 rounded-xl shadow-md hover:bg-blue-50 transition flex items-center gap-2">
+                            <i class="fa-solid fa-robot"></i> Open AI Chatbot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <h3 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-blue-600"></i> Latest Announcements
+                    </h3>
+                    <div class="space-y-4 overflow-y-auto max-h-48 pr-1">
+                        {% for ann in announcements %}
+                        <div class="border-l-4 border-blue-600 pl-3">
+                            <span class="text-[10px] font-semibold uppercase text-blue-600">{{ ann['category'] }}</span>
+                            <h4 class="text-sm font-semibold text-slate-800">{{ ann['title'] }}</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">{{ ann['content'] }}</p>
+                            <span class="text-[10px] text-slate-400 mt-1 block">{{ ann['date'] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEXT CLASSES CARD -->
+            <div class="mt-8 bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-forward text-indigo-600"></i> Next Classes
+                </h3>
+                {% if upcoming_classes %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {% for row in upcoming_classes %}
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p class="text-xs text-slate-500">{{ row['day'] }} | {{ row['time_slot'] }}</p>
+                        <h4 class="font-bold text-blue-600 mt-1">{{ row['subject'] }}</h4>
+                        <p class="text-xs text-slate-600 mt-2"><i class="fa-solid fa-user mr-1"></i>{{ row['faculty'] }}</p>
+                        <p class="text-xs text-slate-600 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>{{ row['room'] }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-slate-500">No upcoming classes.</p>
+                {% endif %}
+            </div>
+
+            <!-- Quick Access Grid -->
+            <div>
+                <h3 class="text-xl font-bold text-slate-800 mb-4">Quick Helpdesk Services</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div onclick="switchTab('timetable')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition cursor-pointer group">
+                        <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition">
+                            <i class="fa-solid fa-calendar-days"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800">Timetable</h4>
+                        <p class="text-xs text-slate-500 mt-1">View class schedules and venues</p>
+                    </div>
+                    <div onclick="switchTab('attendance')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition cursor-pointer group">
+                        <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-emerald-600 group-hover:text-white transition">
+                            <i class="fa-solid fa-clipboard-user"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800">Attendance</h4>
+                        <p class="text-xs text-slate-500 mt-1">Track subject-wise percentage</p>
+                    </div>
+                    <div onclick="switchTab('assignments')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition cursor-pointer group">
+                        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-amber-600 group-hover:text-white transition">
+                            <i class="fa-solid fa-book-open"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800">Assignments</h4>
+                        <p class="text-xs text-slate-500 mt-1">Check homework and due dates</p>
+                    </div>
+                    <div onclick="switchTab('complaints')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition cursor-pointer group">
+                        <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-rose-600 group-hover:text-white transition">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800">Complaints</h4>
+                        <p class="text-xs text-slate-500 mt-1">Register and track grievances</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: TIMETABLE -->
+        <div id="timetable" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3"><i class="fa-solid fa-calendar-day text-blue-600 mr-2"></i>Today's Classes ({{ today_name }})</h3>
+                    {% if today_classes %}
+                    <div class="space-y-3">
+                        {% for row in today_classes %}
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <div>
+                                <p class="font-semibold text-blue-600">{{ row['subject'] }}</p>
+                                <p class="text-xs text-slate-500">{{ row['time_slot'] }} | {{ row['faculty'] }}</p>
+                            </div>
+                            <span class="text-xs font-semibold bg-white border border-slate-200 px-3 py-1 rounded-lg"><i class="fa-solid fa-location-dot mr-1"></i>{{ row['room'] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-500">No classes scheduled today.</p>
+                    {% endif %}
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3"><i class="fa-solid fa-mug-hot text-amber-600 mr-2"></i>Free Periods</h3>
+                    {% if free_periods %}
+                    <div class="space-y-2">
+                        {% for period in free_periods %}
+                        <p class="text-sm text-slate-600 bg-amber-50 rounded-lg px-3 py-2">{{ period }}</p>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-500">No free periods between classes today.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-blue-600"></i> Semester Timetable ({{ session['semester'] }})
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-sm">
+                                <th class="p-3 rounded-l-xl">Day</th>
+                                <th class="p-3">Time Slot</th>
+                                <th class="p-3">Subject</th>
+                                <th class="p-3">Faculty</th>
+                                <th class="p-3 rounded-r-xl">Room / Venue</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                            {% for row in timetable %}
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">{{ row['day'] }}</td>
+                                <td class="p-3">{{ row['time_slot'] }}</td>
+                                <td class="p-3 font-medium text-blue-600">{{ row['subject'] }}</td>
+                                <td class="p-3">{{ row['faculty'] }}</td>
+                                <td class="p-3"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-semibold">{{ row['room'] }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: ATTENDANCE -->
+        <div id="attendance" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-user text-emerald-600"></i> Attendance Tracker
+                </h3>
+                <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <i class="fa-solid fa-shield-heart mr-2"></i><b>Safe target: {{ target_attendance }}%</b> attendance
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for item in attendance_details %}
+                    {% set att = item['record'] %}
+                    {% set percentage = item['percentage'] %}
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-xs">
+                        <h4 class="font-bold text-slate-800 text-base mb-2">{{ att['subject'] }}</h4>
+                        <div class="flex justify-between text-sm text-slate-600 mb-2">
+                            <span>Attended: <b>{{ att['attended_classes'] }} / {{ att['total_classes'] }}</b></span>
+                            <span class="font-bold {% if percentage >= 75 %}text-emerald-600{% else %}text-amber-600{% endif %}">{{ percentage }}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                            <div class="h-2.5 rounded-full {% if percentage >= 75 %}bg-emerald-500{% else %}bg-amber-500{% endif %}" style="width: {{ percentage }}%"></div>
+                        </div>
+                        {% if item['classes_needed'] == 0 %}
+                        <p class="text-xs text-emerald-600 mt-3"><i class="fa-solid fa-circle-check mr-1"></i>Safe at {{ target_attendance }}% target</p>
+                        {% else %}
+                        <p class="text-xs text-amber-600 mt-3"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Attend {{ item['classes_needed'] }} more classes to reach {{ target_attendance }}%</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: ASSIGNMENTS -->
+        <div id="assignments" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-amber-600"></i> Assignments &amp; Homework
+                </h3>
+                <div class="space-y-6">
+                    {% for ass in assignments %}
+                    {% set sub = my_submissions.get(ass['id']) %}
+                    <div class="border border-slate-200 rounded-2xl p-5 hover:border-blue-400 transition">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+                            <h4 class="font-bold text-slate-800 text-base">{{ ass['title'] }}</h4>
+                            <span class="bg-blue-50 text-blue-700 text-xs px-3 py-1 rounded-full font-semibold">{{ ass['subject'] }}</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-4">{{ ass['description'] }}</p>
+
+                        {% if sub %}
+                        <!-- Already Submitted -->
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 text-sm">
+                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                                <span class="font-semibold text-emerald-800">Submitted:</span>
+                                <span class="text-slate-700">{{ sub['original_filename'] }}</span>
+                                <span class="text-xs text-slate-500">on {{ sub['submitted_at'] }}</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 mt-1">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                                    {% if sub['status'] == 'Graded' %}bg-indigo-100 text-indigo-700
+                                    {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                    {{ sub['status'] }}
+                                </span>
+                                {% if sub['grade'] %}
+                                <span class="text-xs font-bold text-slate-700">Grade: <span class="text-indigo-700">{{ sub['grade'] }}</span></span>
+                                {% endif %}
+                                {% if sub['feedback'] %}
+                                <span class="text-xs text-slate-600">Feedback: {{ sub['feedback'] }}</span>
+                                {% endif %}
+                                <a href="{{ url_for('download_submission', submission_id=sub['id']) }}" class="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                    <i class="fa-solid fa-download"></i> Download my file
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="flex flex-wrap justify-between items-center text-xs text-slate-500 pt-3 border-t border-slate-100 gap-3">
+                            <span><i class="fa-solid fa-calendar-days text-amber-500 mr-1"></i> Due: <b>{{ ass['due_date'] }}</b></span>
+                            <!-- File Upload Form -->
+                            <form action="{{ url_for('submit_assignment', assignment_id=ass['id']) }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+                                <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-paperclip"></i>
+                                    <span id="file-label-{{ ass['id'] }}">Choose file</span>
+                                    <input type="file" name="file" required
+                                        accept=".pdf,.doc,.docx,.txt,.py,.zip,.jpg,.jpeg,.png"
+                                        class="hidden"
+                                        onchange="if (this.files.length) { document.getElementById('file-label-{{ ass['id'] }}').textContent = this.files[0].name; this.form.submit(); }">
+                                </label>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-500">No assignments posted yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: COMPLAINTS -->
+        <div id="complaints" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Submit Complaint Form -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-exclamation text-rose-600"></i> Register Complaint
+                    </h3>
+                    <form action="{{ url_for('submit_complaint') }}" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                            <select name="category" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="Academic">Academic & Faculty</option>
+                                <option value="Infrastructure">Infrastructure & Labs</option>
+                                <option value="Hostel & Mess">Hostel & Mess</option>
+                                <option value="IT & Wi-Fi">IT & Wi-Fi Support</option>
+                                <option value="Administration">Administration & Fees</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                            <textarea name="description" rows="4" required class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400" placeholder="Describe your issue in detail..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-md transition">Submit Grievance</button>
+                    </form>
+                </div>
+
+                <!-- Complaint History -->
+                <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-slate-600"></i> My Complaint Status
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 text-sm">
+                                    <th class="p-3 rounded-l-xl">ID</th>
+                                    <th class="p-3">Category</th>
+                                    <th class="p-3">Description</th>
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3 rounded-r-xl">Status</th>
+                                    <th class="p-3">Admin Reply</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-sm text-slate-600">
+                                {% for comp in complaints %}
+                                <tr>
+                                    <td class="p-3 font-semibold text-slate-800">#{{ comp['id'] }}</td>
+                                    <td class="p-3 font-medium text-slate-700">{{ comp['category'] }}</td>
+                                    <td class="p-3 max-w-xs truncate">{{ comp['description'] }}</td>
+                                    <td class="p-3 text-xs">{{ comp['date'] }}</td>
+                                    <td class="p-3">
+                                        <span class="px-3 py-1 rounded-full text-xs font-semibold 
+                                            {% if comp['status'] == 'Resolved' %}bg-emerald-100 text-emerald-700
+                                            {% elif comp['status'] == 'In Progress' %}bg-blue-100 text-blue-700
+                                            {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                            {{ comp['status'] }}
+                                        </span>
+                                    </td>
+                                    <td class="p-3 max-w-xs">{{ comp['admin_response'] or 'No reply yet.' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 6: QUERIES -->
+        <div id="queries" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-comments text-blue-600"></i> Ask a Query
+                    </h3>
+                    <form action="{{ url_for('submit_query') }}" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Subject</label>
+                            <input type="text" name="subject" required maxlength="120" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Scholarship deadline">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Your question</label>
+                            <textarea name="question" rows="5" required maxlength="2000" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Describe what you need help with..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-md transition">Submit Query</button>
+                    </form>
+                </div>
+                <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-slate-600"></i> My Queries
+                    </h3>
+                    <div class="space-y-4">
+                        {% for query in queries %}
+                        <div class="border border-slate-200 rounded-2xl p-4">
+                            <div class="flex flex-col sm:flex-row sm:justify-between gap-2">
+                                <div>
+                                    <h4 class="font-bold text-slate-800">#{{ query['id'] }} {{ query['subject'] }}</h4>
+                                    <p class="text-sm text-slate-600 mt-1">{{ query['question'] }}</p>
+                                </div>
+                                <span class="self-start px-3 py-1 rounded-full text-xs font-semibold {% if query['status'] == 'Resolved' %}bg-emerald-100 text-emerald-700{% elif query['status'] == 'In Progress' %}bg-blue-100 text-blue-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ query['status'] }}</span>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">Submitted {{ query['date'] }}</div>
+                            <p class="mt-2 text-sm text-slate-700"><b>Admin reply:</b> {{ query['admin_response'] or 'No reply yet.' }}</p>
+                        </div>
+                        {% else %}
+                        <p class="text-sm text-slate-500">You have not submitted any queries yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 7: FAQ / KNOWLEDGE BASE -->
+        <div id="faq" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-question text-indigo-600"></i> Knowledge Base & Frequently Asked Questions
+                    </h3>
+                    <button type="button" onclick="toggleChatbot()" class="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md transition">
+                        <i class="fa-solid fa-robot"></i> Ask AI Assistant
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for item in faqs %}
+                    <button type="button" onclick='askFAQ({{ item["question"]|tojson }})' class="text-left border border-slate-200 rounded-2xl p-4 bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/40 transition">
+                        <h4 class="font-bold text-slate-800 text-sm mb-1"><i class="fa-solid fa-circle-question text-blue-600 mr-2"></i>{{ item['question'] }}</h4>
+                        <p class="text-xs text-slate-600 pl-6">{{ item['answer'] }}</p>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- STUDENT TOOLS -->
+        <div class="mt-10 border-t border-slate-200 pt-8">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Student Tools</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <button onclick="switchTab('dashboard'); window.scrollTo({ top: 0, behavior: 'smooth' });" class="text-left bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition">
+                        <i class="fa-solid fa-bullhorn"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-800">Announcements</h4>
+                    <p class="text-xs text-slate-500 mt-1">Read the latest college updates</p>
+                </button>
+                <button onclick="switchTab('assignments'); window.scrollTo({ top: 0, behavior: 'smooth' });" class="text-left bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-amber-600 group-hover:text-white transition">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-800">Study Resources</h4>
+                    <p class="text-xs text-slate-500 mt-1">Open assignments, FAQs, and study help</p>
+                </button>
+                <button onclick="toggleChatbot()" class="text-left bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <h4 class="font-bold text-slate-800">Ask AI</h4>
+                    <p class="text-xs text-slate-500 mt-1">Get instant answers about college services</p>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FLOATING AI CHATBOT WIDGET -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <!-- Chat Button -->
+        <button onclick="toggleChatbot()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition transform hover:scale-105">
+            <i class="fa-solid fa-robot"></i>
+        </button>
+
+        <!-- Chat Box -->
+        <div id="chatbot-box" class="hidden absolute bottom-16 right-0 w-96 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden h-[500px]">
+            <!-- Chat Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm">College AI Assistant</h3>
+                        <p class="text-[10px] text-blue-200">Online & ready to help 24/7</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="voice-toggle-btn" onclick="toggleVoiceOutput()" title="Toggle voice audio output" class="bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg text-[11px] font-medium transition flex items-center gap-1.5 border border-white/15">
+                        <i id="voice-toggle-icon" class="fa-solid fa-volume-high text-xs"></i>
+                        <span id="voice-toggle-label">Voice On</span>
+                    </button>
+                    <button onclick="toggleChatbot()" class="text-white/80 hover:text-white text-lg ml-1">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-xs">
+                <div class="flex justify-start">
+                    <div class="bg-slate-100 text-slate-800 px-4 py-2 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm">
+                        Hello! I am your Smart College Assistant. You can type or tap the microphone to speak your question!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listening Banner -->
+            <div id="voice-listening-banner" class="hidden px-3.5 py-2 bg-rose-50 border-t border-rose-200 text-rose-700 text-xs flex items-center justify-between animate-pulse">
+                <span class="flex items-center gap-2 font-medium">
+                    <i class="fa-solid fa-microphone-lines text-rose-600"></i>
+                    <span>Listening... Speak your question</span>
+                </span>
+                <button onclick="stopVoiceRecognition()" class="text-rose-700 hover:text-rose-900 text-[11px] font-bold underline">Cancel</button>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+                <button id="mic-btn" onclick="toggleVoiceInput()" title="Speak your question (Microphone)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 w-10 h-10 rounded-xl flex items-center justify-center text-sm transition shrink-0 border border-slate-200">
+                    <i id="mic-icon" class="fa-solid fa-microphone"></i>
+                </button>
+                <input type="text" id="chat-input" onkeypress="handleChatKey(event)" placeholder="Ask or speak a question..." class="flex-1 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="sendChatMessage()" title="Send message" class="bg-blue-600 hover:bg-blue-700 text-white w-10 h-10 rounded-xl text-xs font-semibold shadow-md transition flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
